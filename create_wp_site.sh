@@ -18,12 +18,10 @@ fi
 WP_CUSTOM_DOMAIN_CONFIGNAME="${1}"
 
 mkdir "/etc/nginx/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
-chown -R www-data:www-data "/etc/nginx/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
 
-mkdir "/var/www/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
-chown -R www-data:www-data "/var/www/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
 
-cat "/var/www/${WP_CUSTOM_DOMAIN_CONFIGNAME}/index.html" <<'EOF'
+
+tee "/var/www/${WP_CUSTOM_DOMAIN_CONFIGNAME}/index.html" <<'EOF'
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -38,17 +36,23 @@ cat "/var/www/${WP_CUSTOM_DOMAIN_CONFIGNAME}/index.html" <<'EOF'
 </html>
 EOF
 
+mkdir "/var/www/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
+
 mkdir -p /etc/nginx/sites-available
 mkdir -p /etc/nginx/sites-enabled
+mkdir -p "/etc/nginx/cloudflare_origin_certs/${WP_CUSTOM_DOMAIN_CONFIGNAME}/"
 touch "/etc/nginx/sites-available/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
 ln -s "/etc/nginx/sites-available/${WP_CUSTOM_DOMAIN_CONFIGNAME}" "/etc/nginx/sites-enabled/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
 
-cat nginx_wp_default.conf > "/etc/nginx/sites-available/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
+cat nginx_wp_default.conf | tee "/etc/nginx/sites-available/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
 
 sed -i "s/WP_CUSTOM_DOMAIN_CONFIGNAME/$WP_CUSTOM_DOMAIN_CONFIGNAME/g" "/etc/nginx/sites-available/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
 
 #Install the latest version of WordPress
-curl -fsSL "https://wordpress.org/latest.tar.gz" | tar xzf - -C "/var/www/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
+curl -fsSL "https://wordpress.org/latest.tar.gz" | tar xzf -  --transform 's/^wordpress/./' -C "/var/www/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
+
+chown -R www-data:www-data "/etc/nginx/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
+chown -R www-data:www-data "/var/www/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
 
 #Restart nginx if config passes validation
 nginx -t && systemctl restart nginx
