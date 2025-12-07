@@ -45,7 +45,6 @@ touch "/etc/nginx/sites-available/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
 ln -s "/etc/nginx/sites-available/${WP_CUSTOM_DOMAIN_CONFIGNAME}" "/etc/nginx/sites-enabled/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
 
 cat nginx_wp_default.conf | tee "/etc/nginx/sites-available/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
-
 sed -i "s/WP_CUSTOM_DOMAIN_CONFIGNAME/$WP_CUSTOM_DOMAIN_CONFIGNAME/g" "/etc/nginx/sites-available/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
 
 #Install the latest version of WordPress
@@ -56,3 +55,19 @@ chown -R www-data:www-data "/var/www/${WP_CUSTOM_DOMAIN_CONFIGNAME}"
 
 #Restart nginx if config passes validation
 nginx -t && systemctl restart nginx
+
+WP_DB_RANDOM_NAME=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 12; echo)
+WP_DB_RANDOM_PASS=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 55; echo)
+WP_TABLE_RANDOM_PREFIX=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 8; echo)
+mysql -u root -Bse "CREATE DATABASE ${WP_DB_RANDOM_NAME}; CREATE USER 'dbm${WP_DB_RANDOM_NAME}'@'localhost' IDENTIFIED BY '${WP_DB_RANDOM_PASS}'; GRANT ALL PRIVILEGES ON ${WP_DB_RANDOM_NAME}.* TO 'dbm${WP_DB_RANDOM_NAME}'@'localhost'; FLUSH PRIVILEGES;"
+
+cat wp-config-sample.php | tee "/var/www/${WP_CUSTOM_DOMAIN_CONFIGNAME}/wp-config.php"
+sed -i "s/WP_DB_RANDOM_NAME/$WP_DB_RANDOM_NAME/g" "/var/www/${WP_CUSTOM_DOMAIN_CONFIGNAME}/wp-config.php"
+sed -i "s/WP_DB_RANDOM_PASS/$WP_DB_RANDOM_PASS/g" "/var/www/${WP_CUSTOM_DOMAIN_CONFIGNAME}/wp-config.php"
+sed -i "s/WP_TABLE_RANDOM_PREFIX/$WP_TABLE_RANDOM_PREFIX/g" "/var/www/${WP_CUSTOM_DOMAIN_CONFIGNAME}/wp-config.php"
+
+echo '<?php' | tee "/var/www/${WP_CUSTOM_DOMAIN_CONFIGNAME}/wp-msecurity.php"
+curl https://api.wordpress.org/secret-key/1.1/salt/ | tee -a "/var/www/${WP_CUSTOM_DOMAIN_CONFIGNAME}/wp-msecurity.php"
+chown www-data:www-data "/var/www/${WP_CUSTOM_DOMAIN_CONFIGNAME}/wp-msecurity.php"
+chmod 604 "/var/www/${WP_CUSTOM_DOMAIN_CONFIGNAME}/wp-msecurity.php"
+
